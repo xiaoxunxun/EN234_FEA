@@ -292,7 +292,7 @@ subroutine compute_J_integral(J_integral_value)
     real (prec)  ::  V                                 ! V
     real (prec)  ::  L                                 ! Second part
     real (prec)  ::  LL                                ! First part
-    real (prec)  ::  element_coords                    ! First part
+    real (prec)  ::  element_coords                    ! # of coords
     real (prec)  ::  E, xnu                            ! Material properties
 
 
@@ -311,7 +311,7 @@ subroutine compute_J_integral(J_integral_value)
     allocate(dof_total(length_dof_array), stat=status)
     allocate(B(3,length_dof_array), stat=status)
 
-    if (n_nodes == 8) n_points = 9
+    !if (n_nodes == 8) n_points = 9
 
     !     --  Loop over integration points
 
@@ -323,11 +323,13 @@ subroutine compute_J_integral(J_integral_value)
      lmn_start = zone_list(2)%start_element
      lmn_end = zone_list(2)%end_element
 
+
+   J_integral_value = 0.d0
    do  k= lmn_start, lmn_end
 
   !  The two subroutines below extract data for elements and nodes (see module Mesh.f90 for the source code for these subroutines)
 
-    call extract_element_data(lmn,element_identifier,n_nodes,node_list,n_properties,element_properties, &
+    call extract_element_data(k,element_identifier,n_nodes,node_list,n_properties,element_properties, &
                                             n_state_variables,initial_state_variables,updated_state_variables)
 
     do i = 1, n_nodes
@@ -337,9 +339,10 @@ subroutine compute_J_integral(J_integral_value)
     end do
 
 
+
 if (n_nodes == 8) n_points = 9
 
-
+    call initialize_integration_points(n_points, n_nodes, xi, w)
     D = 0.d0
     E = element_properties(1)
     xnu = element_properties(2)
@@ -390,6 +393,12 @@ if (n_nodes == 8) n_points = 9
         L=1/(0.0006)*(En*X2/r)*w(kint)*determinant
 
         LL=(-1/0.0006)*V*w(kint)*determinant
+
+        write(6,*) ' strain ',strain
+        write(6,*) ' dstrain ',dstrain
+        write(6,*) 'w',w(kint)
+        write(6,*) 'xi ',xi(1:2,kint)
+        write(6,*) ' dof_increment ',dof_increment
 
         J_integral_value = J_integral_value + L + LL
 

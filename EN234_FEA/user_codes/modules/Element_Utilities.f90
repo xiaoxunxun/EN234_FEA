@@ -16,7 +16,7 @@ module Element_Utilities
 
     real (prec) :: vol_avg_shape_function_derivatives_1D(3,1)
     real (prec) :: vol_avg_shape_function_derivatives_2D(9,2)
-    real (prec) :: vol_avg_shape_function_derivatives_3D(20,3)
+    real (prec) :: vol_avg_shape_function_derivatives_3D(27,3)
   
     real (prec) :: integrationpoints_1D(6,1)
     real (prec) :: integrationpoints_2D(2,9)

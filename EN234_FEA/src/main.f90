@@ -57,7 +57,6 @@ program en234fea
  ! outfil = './Output_files/holeplate_2d_quad8.out'
  ! open (UNIT = IOW, FILE = outfil, STATUS = 'unknown', ERR=500)
 !
-
 !
 !  Homework 4, crack tip elements and the J integral
   infil = './input_files/crack_tri6.in'
