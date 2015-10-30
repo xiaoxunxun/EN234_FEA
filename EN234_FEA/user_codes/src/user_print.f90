@@ -44,8 +44,8 @@ real (prec) :: vol_averaged_state_vars
    call compute_element_volume_average_3D(lmn,vol_averaged_strain,vol_averaged_state_variables,length_state_variable_array, &
                                                        n_state_vars_per_intpt)
 
-!    write(user_print_units(1),*) vol_averaged_strain)
-!    write(user_print_units(1),*) vol_averaged_stress)
+!   write(user_print_units(1),*) vol_averaged_strain)
+!   write(user_print_units(1),*) vol_averaged_stress)
 !    if (TIME<1.d-12) then
 !      if (n_state_vars_per_intpt<6) then
 !        write(user_print_units(1),'(A)') 'VARIABLES = TIME,e11,e22,e33,e12,e13,e23'
@@ -58,9 +58,11 @@ real (prec) :: vol_averaged_state_vars
 !      write(user_print_units(1),'(7(1x,D12.5))') TIME+DTIME,vol_averaged_strain(1:6)
 !
 !   else
-!      vol_averaged_state_variables(1:3) = vol_averaged_state_variables(1:3) + vol_averaged_state_variables(7)
-!      write(user_print_units(1),'(13(1x,D12.5))') TIME+DTIME,vol_averaged_strain(1:6),vol_averaged_state_variables(1:6)
+!      ! vol_averaged_state_variables(1:3) = vol_averaged_state_variables(1:3) + vol_averaged_state_variables(7)
+!      write(user_print_units(1),'(13(1x,D12.5))') TIME+DTIME,vol_averaged_strain(1:6),vol_averaged_stress(1:6)
 !   endif
+    write(user_print_units(1),'(A)') 'VARIABLES = TIME,e11,e22,e33,e12,e13,e23,s11,s22,s33,s12,s13,s23'
+    write(user_print_units(1),'(13(1x,D12.5))') TIME+DTIME,vol_averaged_strain(1:6),vol_averaged_stress(1:6)
 
 !call compute_J_integral(J_integral_value)
 !write (user_print_units(1),*) J_integral_value
@@ -123,14 +125,13 @@ subroutine compute_element_volume_average_3D(lmn,vol_averaged_strain,vol_average
     real (prec), allocatable  ::  B(:,:)              ! strain = B*(dof_total+dof_increment)
     real (prec)  ::  strain(6)                         ! Strain vector contains [e11, e22, e33, 2e12, 2e13, 2e23]
     real (prec)  ::  dstrain(6)
-    real (prec)  ::  Bbar(6,6)                       ! Strain increment vector
+    real (prec)  ::  D(6,6)
+    real (prec)  ::  Bbard(6,6), B_Bar(6,6)                       ! Strain increment vector
     real (prec)  ::  dxidx(3,3), determinant           ! Jacobian inverse and determinant
-real (prec) :: total_strain(6)
-real (prec) :: deviatoric_strain(6), vol_averaged_stress(6)
-real (prec) :: Et, Es
-real (prec) :: Nn1, Nn2, Nn3, Nn4
-real (prec) :: effect_stress,effect_strain
-real (prec) :: stress(6) !
+    real (prec) :: total_strain(6)
+    real (prec) :: stress(6) !
+    real (prec) :: vol_averaged_stress(6)
+
     !  Allocate memory to store element data.
     !  The variables specifying the size of the arrays are stored in the module user_subroutine_storage
     !  They are initialized when the input file is read, and specify the size of the arrays required to store data
@@ -199,35 +200,35 @@ real (prec) :: stress(6) !
         B(6,2:3*n_nodes-1:3) = dNdx(1:n_nodes,3)
         B(6,3:3*n_nodes:3)   = dNdx(1:n_nodes,2)
 
+
+
         strain = matmul(B(1:6,1:3*n_nodes),dof_total(1:3*n_nodes))
         dstrain = matmul(B(1:6,1:3*n_nodes),dof_increment(1:3*n_nodes))
 
 !
-    call hypoelastic_material(strain, dstrain, total_strain, deviatoric_strain,&
-Et, Es,Nn1, Nn2, Nn3, Nn4, effect_stress,effect_strain,&
-element_properties,n_properties,stress)
-
+   call hypoelastic_material(strain, dstrain, element_properties,n_properties,stress,D)
 
         vol_averaged_strain(1:6) = vol_averaged_strain(1:6) + (total_strain(1:6))*w(kint)*determinant
 
         vol_averaged_stress(1:6) = vol_averaged_stress(1:6) + stress(1:6)*w(kint)*determinant
 
-write(6,*) vol_averaged_strain
-write(6,*) vol_averaged_stress
 
 
-        if (n_state_vars_per_intpt>0) then
-           vol_averaged_state_vars(1:n_state_vars_per_intpt) = vol_averaged_state_vars(1:n_state_vars_per_intpt) &
-                              + updated_state_variables(iof:iof+n_state_vars_per_intpt-1)*w(kint)*determinant
-        endif
 
-        el_vol = el_vol + w(kint)*determinant
+!        if (n_state_vars_per_intpt>0) then
+!           vol_averaged_state_vars(1:n_state_vars_per_intpt) = vol_averaged_state_vars(1:n_state_vars_per_intpt) &
+!                              + updated_state_variables(iof:iof+n_state_vars_per_intpt-1)*w(kint)*determinant
+!        endif
+
+       el_vol = el_vol + w(kint)*determinant
 
     end do
 
     vol_averaged_strain = vol_averaged_strain/el_vol
     vol_averaged_stress = vol_averaged_stress/el_vol
-    vol_averaged_state_vars = vol_averaged_state_vars/el_vol
+
+write (6,*) vol_averaged_strain
+!    vol_averaged_state_vars = vol_averaged_state_vars/el_vol
 
     deallocate(node_list)
     deallocate(element_properties)
@@ -419,11 +420,11 @@ if (n_nodes == 8) n_points = 9
 
         LL=(-1/0.0006)*V*w(kint)*determinant
 
-        write(6,*) ' strain ',strain
-        write(6,*) ' dstrain ',dstrain
-        write(6,*) 'w',w(kint)
-        write(6,*) 'xi ',xi(1:2,kint)
-        write(6,*) ' dof_increment ',dof_increment
+!        write(6,*) ' strain ',strain
+!        write(6,*) ' dstrain ',dstrain
+!        write(6,*) 'w',w(kint)
+!        write(6,*) 'xi ',xi(1:2,kint)
+!        write(6,*) ' dof_increment ',dof_increment
 
         J_integral_value = J_integral_value + L + LL
 

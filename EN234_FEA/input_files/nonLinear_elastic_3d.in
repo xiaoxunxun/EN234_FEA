@@ -64,26 +64,16 @@
       BOUNDARY CONDITIONS
 
 %       The HISTORY key defines a time history that can be applied to DOFs or distributed loads
-        HISTORY, dof_history
+      HISTORY, dof_history
           0.d0, 0.d0                  % Each line gives a time value and then a function value
-         1.d0, 0.1d0
-         2.d0, 0.2d0
-         3.d0, 0.3d0
+         10.d0, 1.d0
         END HISTORY
 
         HISTORY, dload_history
-          0.d0, 0.d0
-          1.d0, 1.d0
-          2.d0, 2.d0
-          3.d0, 3.d0
-          4.d0, 4.d0
-          5.d0, 5.d0
-          6.d0, 6.d0
-          7.d0, 7.d0
-          8.d0, 8.d0
-          9.d0, 9.d0
-         10.d0, 10.d0
+          0.d0, 2.d0
+         10.d0, 2.d0
         END HISTORY
+
 
 %       The NODESET key defines a list of nodes
 
@@ -157,7 +147,6 @@
 %   the residual force vector is consistent with the stiffness
        CHECK STIFFNESS, 1003
 
-      
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Analysis %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -166,10 +155,10 @@
      STATIC STEP
 
 
-          INITIAL TIME STEP, 1.d0        % Test of a comment here
+          INITIAL TIME STEP, 0.001d0        % Test of a comment here
           MAX TIME STEP, 1.d0
           MIN TIME STEP, 0.001d0
-          MAX NUMBER OF STEPS, 2
+          MAX NUMBER OF STEPS, 10
           STOP TIME, 10.d0
           STATE PRINT STEP INTERVAL, 1
           USER PRINT STEP INTERVAL, 1
@@ -207,8 +196,7 @@
           END USER PRINT FILES
           USER PRINT PARAMETERS
 %            list of parameters to be passed to the subroutine
-             1.d0, 6.d0
-             4
+          1
           END USER print PARAMETERS
 
         END STATIC STEP

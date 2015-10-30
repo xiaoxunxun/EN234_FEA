@@ -7,7 +7,7 @@ subroutine el_nonlinelast (lmn, element_identifier, n_nodes, node_property_list,
     n_properties, element_properties, element_coords, length_coord_array, &                      ! Input variables
     dof_increment, dof_total, length_dof_array, &                                                ! Input variables
     n_state_variables, initial_state_variables, &                                                ! Input variables
-    updated_state_variables,element_stiffness,element_residual, fail)      ! Output variables                          ! Output variables
+    updated_state_variables,element_stiffness,element_residual, fail)                          ! Output variables
     use Types
     use ParamIO
     !  use Globals, only: TIME,DTIME  For a time dependent problem uncomment this line to access the time increment and total time
@@ -60,31 +60,15 @@ subroutine el_nonlinelast (lmn, element_identifier, n_nodes, node_property_list,
     integer      :: n_points,kint,k,kk
 
     real (prec)  ::  strain(6), dstrain(6)             ! Strain vector contains [e11, e22, e33, 2e12, 2e13, 2e23]
-    real (prec)  ::  total_strain(6)
     real (prec)  ::  stress(6)                          ! Stress vector contains [s11, s22, s33, s12, s13, s23]
     real (prec)  ::  D(6,6)                            ! stress = D*(strain+dstrain)  (NOTE FACTOR OF 2 in shear strain)
     real (prec)  ::  B(6,length_dof_array)             ! strain = B*(dof_total+dof_increment)
     real (prec)  ::  dxidx(3,3), determinant           ! Jacobian inverse and determinant
     real (prec)  ::  x(3,length_coord_array/3)         ! Re-shaped coordinate array x(i,a) is ith coord of ath node
-    real (prec)  ::  stresszero,strainzero,nzero,kzero             ! Material properties
     real (prec)  ::  el_vol                            ! Element Volume
     real (prec)  ::  Bbard (6,length_dof_array)
     real (prec)  ::  B_Bar (6,length_dof_array)
-    real (prec)  ::  volumetric_strain
-    real (prec)  ::  deviatoric_strain(6)
-    real (prec)  ::  effect_strain
-    real (prec)  ::  effect_stress
-    real (prec)  ::  Et,Es
-    real (prec)  ::  e_dyadic_e(6,6)
-    real (prec)  ::  Aa(6,6)
-    real (prec)  ::  Bb(6,6)
-    real (prec)  ::  Nn1,Nn2,Nn3,Nn4
-    !
 
-      stresszero = element_properties(1)
-      strainzero = element_properties(2)
-      nzero = element_properties(3)
-      kzero = element_properties(4)
 
     fail = .false.
     
@@ -152,32 +136,9 @@ subroutine el_nonlinelast (lmn, element_identifier, n_nodes, node_property_list,
         strain = matmul(B_Bar,dof_total)
         dstrain = matmul(B_Bar,dof_increment)
 
-call hypoelastic_material(strain, dstrain, total_strain, deviatoric_strain,&
-Et, Es,Nn1, Nn2, Nn3, Nn4, effect_stress,effect_strain,&
-element_properties,n_properties,stress)
 
-e_dyadic_e = spread (deviatoric_strain,dim=2,ncopies=6) * spread(deviatoric_strain,dim=2,ncopies=6)
-
-Aa = 0.d0
-Bb = 0.d0
-
-Aa(1,1) = 2.d0
-Aa(2,2) = 2.d0
-Aa(3,3) = 2.d0
-Aa(4,4) = 1.d0
-Aa(5,5) = 1.d0
-Aa(6,6) = 1.d0
-
-Bb(1:3,1:3) = 1.d0
-
-if (effect_stress == 0.d0) then
-
-D =  Et/3.d0*Aa + (kzero-2.d0*Et/9.d0)*Bb
-
-else
-
-D = 4.d0/(9.d0*effect_strain**2.d0)*(Et-Es)*e_dyadic_e + Es/3.d0*Aa + (kzero-2.d0*Es/9.d0)*Bb
-end if
+call hypoelastic_material(strain, dstrain, &
+ element_properties,n_properties,stress,D)
 
 
 element_residual(1:3*n_nodes) = element_residual(1:3*n_nodes) - matmul(transpose(B_Bar),stress)*w(kint)*determinant
@@ -374,32 +335,15 @@ subroutine fieldvars_nonlinear(lmn, element_identifier, n_nodes, node_property_l
 
     real (prec)  ::  strain(6), dstrain(6)             ! Strain vector contains [e11, e22, e33, 2e12, 2e13, 2e23]
     real (prec)  ::  stress(6)                          ! Stress vector contains [s11, s22, s33, s12, s13, s23]
-    real (prec)  ::  total_strain(6)
     real (prec)  ::  sdev(6)                           ! Deviatoric stress
-    !real (prec)  ::  D(6,6)                            ! stress = D*(strain+dstrain)  (NOTE FACTOR OF 2 in shear strain)
+    real (prec)  ::  D(6,6)                            ! stress = D*(strain+dstrain)  (NOTE FACTOR OF 2 in shear strain)
     real (prec)  ::  B(6,length_dof_array)             ! strain = B*(dof_total+dof_increment)
     real (prec)  ::  dxidx(3,3), determinant           ! Jacobian inverse and determinant
     real (prec)  ::  x(3,length_coord_array/3)         ! Re-shaped coordinate array x(i,a) is ith coord of ath node
-    real (prec)  ::  stresszero,strainzero,nzero,kzero              ! Material properties
     real (prec)  ::  p, smises                          ! Pressure and Mises stress
     real (prec)  ::  el_vol                            ! Element Volume
     real (prec)  ::  Bbard (6,length_dof_array)
     real (prec)  ::  B_Bar (6,length_dof_array)
-    real (prec)  ::  volumetric_strain
-    real (prec)  ::  deviatoric_strain(6)
-    real (prec)  ::  effect_strain
-    real (prec)  ::  effect_stress
-    real (prec)  ::  Et,Es
-    real (prec)  ::  e_dyadic_e(6,6)
-    real (prec)  ::  Aa(6,6)
-    real (prec)  ::  Bb(6,6)
-    real (prec)  ::  Nn1,Nn2,Nn3,Nn4
-
-
-      stresszero = element_properties(1)
-      strainzero = element_properties(2)
-      nzero = element_properties(3)
-      kzero = element_properties(4)
 
 
     x = reshape(element_coords,(/3,length_coord_array/3/))
@@ -467,26 +411,9 @@ subroutine fieldvars_nonlinear(lmn, element_identifier, n_nodes, node_property_l
         dstrain = matmul(B_Bar,dof_increment)
 
 
-call hypoelastic_material(strain, dstrain, total_strain, deviatoric_strain,&
-Et, Es,Nn1, Nn2, Nn3, Nn4, effect_stress,effect_strain,&
-element_properties,n_properties,stress)
+call hypoelastic_material(strain, dstrain, &
+ element_properties,n_properties,stress,D)
 
-e_dyadic_e = spread (deviatoric_strain,dim=2,ncopies=6) * spread(deviatoric_strain,dim=2,ncopies=6)
-
-Aa = 0.d0
-Bb = 0.d0
-
-Aa(1,1) = 2.d0
-Aa(2,2) = 2.d0
-Aa(3,3) = 2.d0
-Aa(4,4) = 1.d0
-Aa(5,5) = 1.d0
-Aa(6,6) = 1.d0
-
-Bb(1:3,1:3) = 1.d0
-
-
-!       stress = matmul(D,strain+dstrain)
         p = sum(stress(1:3))/3.d0
         sdev = stress
         sdev(1:3) = sdev(1:3)-p
@@ -516,12 +443,8 @@ Bb(1:3,1:3) = 1.d0
 end subroutine fieldvars_nonlinear
 
 
-
-
-
-subroutine hypoelastic_material(strain, dstrain, total_strain, deviatoric_strain,&
-Et, Es,Nn1, Nn2, Nn3, Nn4, effect_stress,effect_strain,&
-element_properties,n_properties,stress)
+subroutine hypoelastic_material(strain, dstrain, &
+ element_properties,n_properties,stress,D)
 
    use Types
    use ParamIO
@@ -533,16 +456,20 @@ element_properties,n_properties,stress)
    real (prec), intent( in )  :: strain(6),dstrain(6)
    real (prec), intent( in )  :: element_properties(n_properties)
    real (prec), intent( out ) :: stress(6)
+   real (prec), intent( out ) :: D(6,6)
 
 
    real (prec) :: Et, Es
-   real (prec) :: Nn1,Nn2,Nn3,Nn4
+   real (prec) :: Nn1,Nn2,Nn3,Nn4,Nn5,Nn6
    real (prec) :: stresszero,strainzero,nzero,kzero
    real (prec) :: effect_stress
    real (prec) :: total_strain(6)
    real (prec) :: deviatoric_strain(6)
    real (prec) :: volumetric_strain
    real (prec) :: effect_strain
+   real (prec) :: e_dyadic_e(6,6)
+   real (prec) :: Aa(6,6)
+   real (prec) :: Bb(6,6)
 
       stresszero = element_properties(1)
       strainzero = element_properties(2)
@@ -552,10 +479,10 @@ element_properties,n_properties,stress)
       total_strain = strain + dstrain
 
 
-   volumetric_strain = 1.d0/3.d0*(total_strain(1)+total_strain(2)+total_strain(3))
-   deviatoric_strain(1) = total_strain(1)-volumetric_strain
-   deviatoric_strain(2) = total_strain(2)-volumetric_strain
-   deviatoric_strain(3) = total_strain(3)-volumetric_strain
+   volumetric_strain = total_strain(1)+total_strain(2)+total_strain(3)
+   deviatoric_strain(1) = total_strain(1)-1.d0/3.d0*volumetric_strain
+   deviatoric_strain(2) = total_strain(2)-1.d0/3.d0*volumetric_strain
+   deviatoric_strain(3) = total_strain(3)-1.d0/3.d0*volumetric_strain
    deviatoric_strain(4) =  0.5*total_strain(4)
    deviatoric_strain(5) =  0.5*total_strain(5)
    deviatoric_strain(6) =  0.5*total_strain(6)
@@ -563,29 +490,29 @@ element_properties,n_properties,stress)
 
    effect_strain = dot_product(deviatoric_strain(1:3),deviatoric_strain(1:3)) &
                  + 2.d0*dot_product(deviatoric_strain(4:6),deviatoric_strain(4:6))
+
    effect_strain = dsqrt(2.d0*effect_strain/3.d0)
 
-if (effect_strain ==0.d0) then
-
-  effect_stress = 0.d0
-  Nn3 = nzero/(nzero-1.d0)-effect_strain/strainzero
-  Nn4 = dsqrt((nzero**2+1.d0)/(nzero-1.d0)**2.d0-(nzero/(nzero-1.d0)-effect_strain/strainzero)**2)
-  Et = stresszero / strainzero * (Nn3/Nn4)
+if (effect_strain == 0.d0) then
+  Nn1 = nzero/(nzero-1.d0)-effect_strain/strainzero
+  Nn2 = dsqrt((nzero**2+1.d0)/(nzero-1.d0)**2.d0-(nzero/(nzero-1.d0)-effect_strain/strainzero)**2)
+  Et = Nn1/(strainzero*Nn2)
+  Es = 0.d0
 
 else if (effect_strain < strainzero ) then
-   Nn1= (1.d0+nzero**2)/((nzero-1.d0)**2)
-   Nn2= (nzero/(nzero-1.d0)-effect_strain/strainzero)**2
-   effect_stress = stresszero * (dsqrt(Nn1-Nn2) -1.d0/(nzero-1.d0))
+   Nn3= (1.d0+nzero**2)/((nzero-1.d0)**2)
+   Nn4= (nzero/(nzero-1.d0)-effect_strain/strainzero)**2
+   effect_stress = stresszero * (dsqrt(Nn3-Nn4) -1.d0/(nzero-1.d0))
 
-Nn3 = nzero/(nzero-1.d0)-effect_strain/strainzero
-Nn4 = dsqrt((nzero**2+1.d0)/(nzero-1.d0)**2.d0-(nzero/(nzero-1.d0)-effect_strain/strainzero)**2)
-Et= stresszero / strainzero * (Nn3/Nn4)
-Es = effect_stress/ effect_strain
+   Nn5 = nzero/(nzero-1.d0)-effect_strain/strainzero
+   Nn6 = dsqrt((nzero**2+1.d0)/(nzero-1.d0)**2.d0-(nzero/(nzero-1.d0)-effect_strain/strainzero)**2)
+   Et= Nn5/(strainzero*Nn6)
+   Es = effect_stress/ effect_strain
 
 else
 
 effect_stress = stresszero * ((effect_strain/strainzero)**(1.d0/nzero))
-Et = stresszero *(effect_strain**(1.d0/nzero-1.d0))/nzero*((1.d0/strainzero)**(1.d0/nzero))
+Et = (1.d0/nzero)*(effect_strain**(1.d0/nzero-1.d0)*(1.d0/strainzero)**1/nzero)
 Es = effect_stress/ effect_strain
 
 end if
@@ -593,19 +520,45 @@ end if
 
 stress(1:6) = 0.d0
 
-if (effect_strain ==0.d0) then
-stress(1:3) = 3.d0*kzero*volumetric_strain
+if (effect_strain == 0.d0) then
+
+stress(1:3) = kzero * volumetric_strain
 
 else
 
-stress(1) = 2.d0/3.d0* effect_stress * deviatoric_strain(1)/effect_strain + 3.d0*kzero * volumetric_strain
-stress(2) = 2.d0/3.d0* effect_stress * deviatoric_strain(2)/effect_strain + 3.d0*kzero * volumetric_strain
-stress(3) = 2.d0/3.d0* effect_stress * deviatoric_strain(3)/effect_strain + 3.d0*kzero * volumetric_strain
+stress(1) = 2.d0/3.d0* effect_stress * deviatoric_strain(1)/effect_strain + kzero * volumetric_strain
+stress(2) = 2.d0/3.d0* effect_stress * deviatoric_strain(2)/effect_strain + kzero * volumetric_strain
+stress(3) = 2.d0/3.d0* effect_stress * deviatoric_strain(3)/effect_strain + kzero * volumetric_strain
 stress(4) = 2.d0/3.d0* effect_stress * deviatoric_strain(4)/effect_strain
 stress(5) = 2.d0/3.d0* effect_stress * deviatoric_strain(5)/effect_strain
 stress(6) = 2.d0/3.d0* effect_stress * deviatoric_strain(6)/effect_strain
 
 end if
-write(6,*) stress
 
+
+e_dyadic_e = spread (deviatoric_strain,dim=2,ncopies=6) * spread(deviatoric_strain,dim=1,ncopies=6)
+
+Aa = 0.d0
+Bb = 0.d0
+
+Aa(1,1) = 2.d0
+Aa(2,2) = 2.d0
+Aa(3,3) = 2.d0
+Aa(4,4) = 1.d0
+Aa(5,5) = 1.d0
+Aa(6,6) = 1.d0
+
+Bb(1:3,1:3) = 1.d0
+
+if (effect_strain == 0.d0) then
+
+D =  Et/3.d0*Aa + (kzero-2.d0*Et/9.d0)*Bb
+
+else
+
+D = 4.d0/(9.d0*effect_strain**2.d0)*(Et-Es)*e_dyadic_e + Es/3.d0*Aa + (kzero-2.d0*Es/9.d0)*Bb
+end if
+
+write(6,*) total_strain
 end subroutine hypoelastic_material
+
