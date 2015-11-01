@@ -18,9 +18,9 @@ subroutine user_print(n_steps)
   real (prec) ::   vol_averaged_strain(6) ,vol_averaged_stress(6)                                   ! Volume averaged strain in an element
   real (prec), allocatable ::   vol_averaged_state_variables(:)              ! Volume averaged state variables in an element
   real (prec) :: J_integral_value
-real (prec) :: length_output_array
-real (prec) :: vol_averaged_state_vars
- real (prec) :: Bbard(6,6)
+  real (prec) :: length_output_array
+  real (prec) :: vol_averaged_state_vars
+  real (prec) :: Bbard(6,6)
 
 !
 !  Use this file to process or print time histories of the solution, or to print a non-standard mesh.
@@ -41,11 +41,9 @@ real (prec) :: vol_averaged_state_vars
 
    lmn = int(user_print_parameters(1))     ! The element number
 !
-   call compute_element_volume_average_3D(lmn,vol_averaged_strain,vol_averaged_state_variables,length_state_variable_array, &
-                                                       n_state_vars_per_intpt)
+   call compute_element_volume_average_3D(lmn,vol_averaged_strain,vol_averaged_stress, &
+   length_state_variable_array,n_state_vars_per_intpt)
 
-!   write(user_print_units(1),*) vol_averaged_strain)
-!   write(user_print_units(1),*) vol_averaged_stress)
 !    if (TIME<1.d-12) then
 !      if (n_state_vars_per_intpt<6) then
 !        write(user_print_units(1),'(A)') 'VARIABLES = TIME,e11,e22,e33,e12,e13,e23'
@@ -63,6 +61,7 @@ real (prec) :: vol_averaged_state_vars
 !   endif
     write(user_print_units(1),'(A)') 'VARIABLES = TIME,e11,e22,e33,e12,e13,e23,s11,s22,s33,s12,s13,s23'
     write(user_print_units(1),'(13(1x,D12.5))') TIME+DTIME,vol_averaged_strain(1:6),vol_averaged_stress(1:6)
+    !write(user_print_units(1),'(13(1x,D12.5))') vol_averaged_strain(1),vol_averaged_stress(1)
 
 !call compute_J_integral(J_integral_value)
 !write (user_print_units(1),*) J_integral_value
@@ -72,7 +71,8 @@ real (prec) :: vol_averaged_state_vars
 
 end subroutine user_print
 
-subroutine compute_element_volume_average_3D(lmn,vol_averaged_strain,vol_averaged_state_vars,length_output_array, &
+
+subroutine compute_element_volume_average_3D(lmn,vol_averaged_strain,vol_averaged_stress,length_output_array, &
                                                                                                        n_state_vars_per_intpt)
     use Types
     use ParamIO
@@ -93,7 +93,7 @@ subroutine compute_element_volume_average_3D(lmn,vol_averaged_strain,vol_average
     integer, intent ( in )      :: length_output_array
 
     real (prec), intent( out )  ::  vol_averaged_strain(6)
-    real (prec), intent( out )  ::  vol_averaged_state_vars(length_output_array)
+    real (prec), intent( out )  ::  vol_averaged_stress(length_output_array)
 
     integer, intent( out )      :: n_state_vars_per_intpt
 
@@ -130,7 +130,6 @@ subroutine compute_element_volume_average_3D(lmn,vol_averaged_strain,vol_average
     real (prec)  ::  dxidx(3,3), determinant           ! Jacobian inverse and determinant
     real (prec) :: total_strain(6)
     real (prec) :: stress(6) !
-    real (prec) :: vol_averaged_stress(6)
 
     !  Allocate memory to store element data.
     !  The variables specifying the size of the arrays are stored in the module user_subroutine_storage
@@ -171,14 +170,15 @@ subroutine compute_element_volume_average_3D(lmn,vol_averaged_strain,vol_average
     call initialize_integration_points(n_points, n_nodes, xi, w)
 
     vol_averaged_strain = 0.d0
-    vol_averaged_state_vars = 0.d0
+    !vol_averaged_state_vars = 0.d0
+    vol_averaged_stress = 0.d0
     el_vol = 0.d0
     n_state_vars_per_intpt = n_state_variables/n_points
 
-    if (n_state_vars_per_intpt>size(vol_averaged_state_vars)) then
+    if (n_state_vars_per_intpt>size(vol_averaged_stress)) then
        write(IOW,*) ' Error detected in subroutine compute_element_volume_average_3d '
        write(IOW,*) ' The element contains ',n_state_vars_per_intpt
-       write(IOW,*) ' but the array storing averaged state variables has length ',size(vol_averaged_state_vars)
+       write(IOW,*) ' but the array storing averaged state variables has length ',size(vol_averaged_stress)
        stop
     endif
     !     --  Loop over integration points
@@ -208,7 +208,7 @@ subroutine compute_element_volume_average_3D(lmn,vol_averaged_strain,vol_average
 !
    call hypoelastic_material(strain, dstrain, element_properties,n_properties,stress,D)
 
-        vol_averaged_strain(1:6) = vol_averaged_strain(1:6) + (total_strain(1:6))*w(kint)*determinant
+        vol_averaged_strain(1:6) = vol_averaged_strain(1:6) + (strain(1:6)+dstrain(1:6))*w(kint)*determinant
 
         vol_averaged_stress(1:6) = vol_averaged_stress(1:6) + stress(1:6)*w(kint)*determinant
 
@@ -227,7 +227,7 @@ subroutine compute_element_volume_average_3D(lmn,vol_averaged_strain,vol_average
     vol_averaged_strain = vol_averaged_strain/el_vol
     vol_averaged_stress = vol_averaged_stress/el_vol
 
-write (6,*) vol_averaged_strain
+!
 !    vol_averaged_state_vars = vol_averaged_state_vars/el_vol
 
     deallocate(node_list)
@@ -245,6 +245,7 @@ write (6,*) vol_averaged_strain
 
 
 end subroutine compute_element_volume_average_3D
+
 
 
 

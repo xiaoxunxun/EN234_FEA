@@ -559,6 +559,6 @@ else
 D = 4.d0/(9.d0*effect_strain**2.d0)*(Et-Es)*e_dyadic_e + Es/3.d0*Aa + (kzero-2.d0*Es/9.d0)*Bb
 end if
 
-write(6,*) total_strain
+
 end subroutine hypoelastic_material
 
