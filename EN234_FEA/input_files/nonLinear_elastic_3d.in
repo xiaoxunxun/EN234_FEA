@@ -65,13 +65,20 @@
 
 %       The HISTORY key defines a time history that can be applied to DOFs or distributed loads
        HISTORY, dof_history
-         0.d0, 0.d0                  % Each line gives a time value and then a function value
+          0.d0, 0.d0                  % Each line gives a time value and then a function value
          1.d0, 0.1d0
          2.d0, -.1d0
          3.d0, 0.1d0
+         4.d0, -.1d0
+         5.d0, 0.1d0
+         6.d0, -.1d0
+         7.d0, 0.1d0
+         8.d0, -.1d0
+         9.d0, 0.1d0
+         10.d0, -.1d0
         END HISTORY
 
-       HISTORY, dload_history
+        HISTORY, dload_history
           0.d0, 0.d0
           1.d0, 12.5d0
           2.d0, -10.d0
@@ -169,7 +176,7 @@
           INITIAL TIME STEP, 0.001d0        % Test of a comment here
           MAX TIME STEP, 1.d0
           MIN TIME STEP, 0.001d0
-          MAX NUMBER OF STEPS, 10
+          MAX NUMBER OF STEPS, 30
           STOP TIME, 10.d0
           STATE PRINT STEP INTERVAL, 1
           USER PRINT STEP INTERVAL, 1
