@@ -57,7 +57,7 @@ subroutine el_linelast_3dbar(lmn, element_identifier, n_nodes, node_property_lis
           
 
     ! Local Variables
-    integer      :: n_points,kint,k,kk
+    integer      :: n_points,kint,kk
 
     real (prec)  ::  strain(6), dstrain(6)             ! Strain vector contains [e11, e22, e33, 2e12, 2e13, 2e23]
     real (prec)  ::  stress(6)                         ! Stress vector contains [s11, s22, s33, s12, s13, s23]
