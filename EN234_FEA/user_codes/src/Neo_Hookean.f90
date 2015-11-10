@@ -361,7 +361,7 @@ subroutine fieldvars_Neo_Hookean(lmn, element_identifier, n_nodes, node_property
     real (prec)  ::  stress(6)                         ! Stress vector contains [s11, s22, s33, s12, s13, s23]
     real (prec)  ::  sdev(6)                           ! Deviatoric stress
     real (prec)  ::  D(6,6)                            ! stress = D*(strain+dstrain)  (NOTE FACTOR OF 2 in shear strain)
-    real (prec)  ::  B(6,length_dof_array)             ! strain = B*(dof_total+dof_increment)
+   ! real (prec)  ::  B(6,length_dof_array)             ! strain = B*(dof_total+dof_increment)
     real (prec)  ::  dxidx(3,3), determinant           ! Jacobian inverse and determinant
     real (prec)  ::  x(3,length_coord_array/3)         ! Re-shaped coordinate array x(i,a) is ith coord of ath node
     real (prec)  ::  p, smises                          ! Pressure and Mises stress
@@ -371,7 +371,7 @@ subroutine fieldvars_Neo_Hookean(lmn, element_identifier, n_nodes, node_property
     real (prec)  ::  F(3,3),invert_F(3,3)
     real (prec)  ::  B_finger(3,3)
     real (prec)  ::  dNdy(length_coord_array/3,3)
-    real (prec)  ::  tao_stress(6)
+   ! real (prec)  ::  tao_stress(6)
 
     !     Subroutine to compute element contribution to project element integration point data to nodes
 
@@ -411,17 +411,16 @@ call invert_small(F,invert_F,J)
 dNdy(1:n_nodes,1:3) = matmul (dNdx(1:n_nodes,1:3) , invert_F(1:3,1:3))
 
 
-
-        B = 0.d0
-        B(1,1:3*n_nodes-2:3) = dNdy(1:n_nodes,1)
-        B(2,2:3*n_nodes-1:3) = dNdy(1:n_nodes,2)
-        B(3,3:3*n_nodes:3)   = dNdy(1:n_nodes,3)
-        B(4,1:3*n_nodes-2:3) = dNdy(1:n_nodes,2)
-        B(4,2:3*n_nodes-1:3) = dNdy(1:n_nodes,1)
-        B(5,1:3*n_nodes-2:3) = dNdy(1:n_nodes,3)
-        B(5,3:3*n_nodes:3)   = dNdy(1:n_nodes,1)
-        B(6,2:3*n_nodes-1:3) = dNdy(1:n_nodes,3)
-        B(6,3:3*n_nodes:3)   = dNdy(1:n_nodes,2)
+!        B = 0.d0
+!        B(1,1:3*n_nodes-2:3) = dNdy(1:n_nodes,1)
+!        B(2,2:3*n_nodes-1:3) = dNdy(1:n_nodes,2)
+!        B(3,3:3*n_nodes:3)   = dNdy(1:n_nodes,3)
+!        B(4,1:3*n_nodes-2:3) = dNdy(1:n_nodes,2)
+!        B(4,2:3*n_nodes-1:3) = dNdy(1:n_nodes,1)
+!        B(5,1:3*n_nodes-2:3) = dNdy(1:n_nodes,3)
+!        B(5,3:3*n_nodes:3)   = dNdy(1:n_nodes,1)
+!        B(6,2:3*n_nodes-1:3) = dNdy(1:n_nodes,3)
+!        B(6,3:3*n_nodes:3)   = dNdy(1:n_nodes,2)
 
 call Neo_Hookean_material(B_finger,J,element_properties,n_properties,stress,D)
 
