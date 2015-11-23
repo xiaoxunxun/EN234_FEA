@@ -185,6 +185,12 @@ subroutine user_element_dynamic(lmn, element_identifier, n_nodes, node_property_
             n_state_variables, initial_state_variables, &                                                  ! Input variables
             updated_state_variables,element_residual,element_deleted)                                      ! Output variables
 
+  else if ( element_identifier == 110) then
+    call Gurson_dynamic(lmn, element_identifier, n_nodes, node_property_list, &           ! Input variables
+    n_properties, element_properties,element_coords, length_coord_array, &                               ! Input variables
+    dof_increment, dof_total, length_dof_array,  &                                                       ! Input variables
+    n_state_variables, initial_state_variables, &                                                        ! Input variables
+    updated_state_variables,element_residual,element_deleted)
 
     else if ( element_identifier ==0) then               ! Stub for a new element
   
@@ -303,6 +309,14 @@ subroutine user_element_fieldvariables(lmn, element_identifier, n_nodes, node_pr
     n_field_variables,field_variable_names, &                                                           ! Field variable definition
     nodal_fieldvariables)
 
+    else if ( element_identifier == 110 ) then
+
+   call  fieldvars_Gurson_Dynamics(lmn, element_identifier, n_nodes, node_property_list, &           ! Input variables
+    n_properties, element_properties,element_coords,length_coord_array, &                                ! Input variables
+    dof_increment, dof_total, length_dof_array,  &                                                      ! Input variables
+    n_state_variables, initial_state_variables,updated_state_variables, &                               ! Input variables
+    n_field_variables,field_variable_names, &                                                           ! Field variable definition
+    nodal_fieldvariables)
 
         else
 

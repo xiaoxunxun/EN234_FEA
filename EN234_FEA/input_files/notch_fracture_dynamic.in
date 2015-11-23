@@ -4039,7 +4039,7 @@
 %     The parameters are no. nodes on the element, total no. state variables, integer identifier
 
       ELEMENTS
-        PARAMETERS, 8, 80, 3001
+        PARAMETERS, 8, 80, 110
 %       Define element properties - the values are passed to user subroutine elstif in the order they are listed here
         PROPERTIES
          1000.d0, 0.3d0   % E, nu
