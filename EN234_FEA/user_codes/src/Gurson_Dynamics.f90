@@ -167,7 +167,6 @@ subroutine Gurson_dynamic(lmn, element_identifier, n_nodes, node_property_list, 
         call invert_small(dR1,invert_dR1,noneed)
         dR = matmul (invert_dR1,dR2)
 
-
         call gurson(element_properties,n_properties,8, initial_state_variables(8*(kint-1)+1:8*kint), &
             updated_state_variables(8*(kint-1)+1:8*kint),dstrain,dR,stress1)
 
@@ -175,9 +174,11 @@ subroutine Gurson_dynamic(lmn, element_identifier, n_nodes, node_property_list, 
         element_residual(1:3*n_nodes) = element_residual(1:3*n_nodes) - matmul(transpose(B_Bar),stress1)*w(kint)*determinant
 
     end do
-  
+
     return
 end subroutine Gurson_dynamic
+
+
 
 
 
@@ -217,6 +218,9 @@ subroutine gurson(element_properties,n_properties,n_state_variables, initial_sta
     real (prec)  :: df1de,df1dv,df2de,df2dv
     real (prec)  :: dematrix, ematrix1,vf1
     real (prec)  :: tol,wnorm,err1,ddde,dddv
+    real (prec)  :: A,b1,b2,Fi_e,Fi_p,Fi_ee,Fi_ep,Fi_pe,Fi_pp
+    real (prec)  :: a_e,a_p,a_de,a_dv,e_de,p_dv
+    real (prec)  :: b1_de,b1_dv,b2_de,b2_dv
 
 
     ev = element_properties(1)
@@ -265,6 +269,8 @@ subroutine gurson(element_properties,n_properties,n_state_variables, initial_sta
 
     ff_bar = (q1+sqrt(q1**2.d0-q3))/q3
 
+
+
     if (vf < fc) then
         f_star = vf
 
@@ -290,10 +296,11 @@ subroutine gurson(element_properties,n_properties,n_state_variables, initial_sta
 
 tol =0.0001d0
 
-maxit =6
+maxit = 20
 
-nit = 0
-err1 =1.d0
+nit  = 0
+
+err1 = 1.d0
 
 
 dde = 0.d0
@@ -305,120 +312,163 @@ do while (err1>tol .and. nit<maxit)
 nit = nit + 1
 
 
-!h = (stress_star -1.5*ev/(1+nu)*dde)
+!===Matlab Methods
+dfdx  =  (stress_star -1.5d0*ev/(1.d0+nu)*dde)/((yy**2)*((stress_star - 1.5d0*ev/(1.d0+nu)*dde)**2/yy**2 &
+- (f_star**2)*q3 + 2.d0*f_star*q1*cosh((3.d0*(p_star - ev/(3.d0*(1.d0-2.d0*nu))*ddv)*q2)/(2.d0*yy)) - 1.d0)**(0.5d0))
 
-!p = (p_star - ev/(3*(1-2*nu))*ddv)
+dfdy  = (3.d0*f_star*q1*q2*sinh((3.d0*(p_star - ev/(3.d0*(1.d0-2.d0*nu))*ddv)*q2)/(2.d0*yy)))/(2.d0*yy*((stress_star &
+-1.5d0*ev/(1+nu)*dde)**2/yy**2 - (f_star**2)*q3 &
++ 2.d0*f_star*q1*cosh((3.d0*(p_star - ev/(3.d0*(1.d0-2.d0*nu))*ddv)*q2)/(2.d0*yy)) - 1.d0)**(0.5d0))
 
-!fi = ((h + 1.5*ev/(1+nu)*dde)**2/yy**2 + 2*q1*f_star*cosh(1.5*q2*(p + ev/(3*(1-2*nu))*ddv)/yy) - (1+q3*f_star**2))**0.5
-!dfdx = ((2.d0*(stress_star -1.5*ev/(1+nu)*dde) + (3.d0*dde*ev)/(nu + 1.d0))/(2*(yy**2)*(((stress_star -1.5*ev/(1+nu)*dde) &
-!        + (3.d0*dde*ev)/(2.d0*nu + 2.d0))**2/yy**2 &
-!        - (f_star**2.d0)*q3 + 2.d0*f_star*q1*cosh((3.d0*q2*((p_star - ev/(3*(1-2*nu))*ddv) &
-!        - (ddv*ev)/(6.d0*nu - 3.d0)))/(2.d0*yy)) - 1.d0)**(0.5d0)))
+!fi =  ((stress_star -1.5*ev/(1+nu)*dde)**2/yy**2 - f_star**2*q3 + 2*f_star*q1*cosh((3*(p_star &
+!- ev/(3*(1-2*nu))*ddv)*q2)/(2*yy)) - 1)**(1/2)
+
+F1 = (dde*z0*(- (stress_star - (3.d0*dde*ev)/(2.d0*(nu + 1.d0)))**2/((yy**4)*((f_star**2)*q3 &
+- (stress_star - (3.d0*dde*ev)/(2.d0*(nu + 1.d0)))**2/(yy**2) - 2.d0*f_star*q1*cosh((q2*(3.d0*p_star &
++ (3.d0*ddv*ev)/(6.d0*nu - 3.d0)))/(2.d0*yy)) + 1.d0)) - ((f_star**2)*(q1**2)*(q2**2)*sinh((q2*(3.d0*p_star &
++ (3.d0*ddv*ev)/(6.d0*nu - 3.d0)))/(2.d0*yy))**2)/(2.d0*(yy**2)*((f_star**2)*q3 - (stress_star &
+- (3.d0*dde*ev)/(2.d0*(nu + 1.d0)))**2/(yy**2) - 2.d0*f_star*q1*cosh((q2*(3.d0*p_star &
++ (3.d0*ddv*ev)/(6.d0*nu - 3.d0)))/(2.d0*yy)) + 1.d0)))**(0.5d0))/DTIME - (((stress_star**2/(yy**2) &
+- (f_star**2)*q3 + 2.d0*f_star*q1*cosh((3.d0*p_star*q2)/(2.d0*yy)) - 1.d0)**(0.5d0))**m*(stress_star&
+ - (3.d0*dde*ev)/(2.d0*(nu + 1.d0))))/((yy**2)*((stress_star - (3.d0*dde*ev)/(2.d0*nu + 2.d0))**2/(yy**2) - (f_star**2)*q3 &
+ + 2.d0*f_star*q1*cosh((q2*(3.d0*p_star + (3.d0*ddv*ev)/(6.d0*nu - 3.d0)))/(2.d0*yy)) - 1.d0)**(0.5d0))
+
+F2 = (ddv*z0*(- (stress_star - (3.d0*dde*ev)/(2.d0*(nu + 1.d0)))**2/((yy**4)*((f_star**2)*q3 &
+- (stress_star - (3.d0*dde*ev)/(2.d0*(nu + 1.d0)))**2/(yy**2) - 2.d0*f_star*q1*cosh((q2*(3.d0*p_star&
+ + (3.d0*ddv*ev)/(6.d0*nu - 3.d0)))/(2.d0*yy)) + 1.d0)) - ((f_star**2)*(q1**2)*(q2**2)*sinh((q2*(3.d0*p_star &
+ + (3.d0*ddv*ev)/(6.d0*nu - 3.d0)))/(2.d0*yy))**2)/(2.d0*(yy**2)*((f_star**2)*q3 - (stress_star &
+ - (3.d0*dde*ev)/(2.d0*(nu + 1.d0)))**2/(yy**2) - 2.d0*f_star*q1*cosh((q2*(3.d0*p_star &
+  + (3.d0*ddv*ev)/(6.d0*nu - 3.d0)))/(2.d0*yy)) &
+ + 1.d0)))**(0.5d0))/DTIME - (3.d0*f_star*q1*q2*sinh((q2*(3.d0*p_star + (3.d0*ddv*ev)/(6.d0*nu &
+ - 3.d0)))/(2.d0*yy))*(((stress_star**2)/(yy**2) - (f_star**2)*q3 + 2*f_star*q1*cosh((3*p_star*q2)/(2*yy)) &
+ - 1)**(1/2))**m)/(2*yy*((stress_star - (3*dde*ev)/(2*nu + 2))**2/yy**2 - f_star**2*q3 &
+ + 2*f_star*q1*cosh((q2*(3*p_star + (3*ddv*ev)/(6*nu - 3)))/(2*yy)) - 1)**(1/2))
+
+
+
+
+dF1de = (z0*(- (stress_star - (3*dde*ev)/(2*(nu + 1)))**2/(yy**4*(f_star**2*q3 &
+- (stress_star - (3*dde*ev)/(2*(nu + 1)))**2/yy**2 - 2*f_star*q1*cosh((q2*(3*p_star&
+ + (3*ddv*ev)/(6*nu - 3)))/(2*yy)) + 1)) - (f_star**2*q1**2*q2**2*sinh((q2*(3*p_star&
+  + (3*ddv*ev)/(6*nu - 3)))/(2*yy))**2)/(2*yy**2*(f_star**2*q3 - (stress_star &
+  - (3*dde*ev)/(2*(nu + 1)))**2/yy**2 - 2*f_star*q1*cosh((q2*(3*p_star + (3*ddv*ev)/(6*nu - 3)))/(2*yy)) &
+  + 1)))**(1/2))/DTIME + (dde*z0*((3*ev*(stress_star - (3*dde*ev)/(2*(nu + 1))))/(yy**4*(nu &
+  + 1)*(f_star**2*q3 - (stress_star - (3*dde*ev)/(2*(nu + 1)))**2/yy**2 - 2*f_star*q1*cosh((q2*(3*p_star&
+   + (3*ddv*ev)/(6*nu - 3)))/(2*yy)) + 1)) + (3*ev*(stress_star - (3*dde*ev)/(2*(nu &
+   + 1)))**3)/(yy**6*(nu + 1)*((stress_star - (3*dde*ev)/(2*nu + 2))**2/yy**2 - f_star**2*q3 &
+   + 2*f_star*q1*cosh((q2*(3*p_star + (3*ddv*ev)/(6*nu - 3)))/(2*yy)) - 1)**2) &
+   + (3*ev*f_star**2*q1**2*q2**2*sinh((q2*(3*p_star + (3*ddv*ev)/(6*nu - 3)))/(2*yy))**2*(stress_star &
+   - (3*dde*ev)/(2*(nu + 1))))/(2*yy**4*(nu + 1)*((stress_star - (3*dde*ev)/(2*nu + 2))**2/yy**2 &
+   - f_star**2*q3 + 2*f_star*q1*cosh((q2*(3*p_star + (3*ddv*ev)/(6*nu - 3)))/(2*yy)) - 1)**2)))/(2*DTIME*((stress_star &
+   - (3*dde*ev)/(2*nu + 2))**2/(yy**4*((stress_star - (3*dde*ev)/(2*nu + 2))**2/yy**2 - f_star**2*q3 &
+   + 2*f_star*q1*cosh((q2*(3*p_star + (3*ddv*ev)/(6*nu - 3)))/(2*yy)) - 1)) &
+   + (f_star**2*q1**2*q2**2*sinh((q2*(3*p_star + (3*ddv*ev)/(6*nu - 3)))/(2*yy))**2)/(2*yy**2*((stress_star &
+   - (3*dde*ev)/(2*nu + 2))**2/yy**2 - f_star**2*q3 + 2*f_star*q1*cosh((q2*(3*p_star&
+    + (3*ddv*ev)/(6*nu - 3)))/(2*yy)) - 1)))**(1/2)) + (3*ev*((stress_star**2/yy**2 &
+    - f_star**2*q3 + 2*f_star*q1*cosh((3*p_star*q2)/(2*yy)) - 1)**(1/2))**m)/(2*yy**2*(nu + 1)*((stress_star &
+    - (3*dde*ev)/(2*nu + 2))**2/yy**2 - f_star**2*q3 + 2*f_star*q1*cosh((q2*(3*p_star + (3*ddv*ev)/(6*nu &
+    - 3)))/(2*yy)) - 1)**(1/2)) - (3*ev*((stress_star**2/yy**2 - f_star**2*q3 + 2*f_star*q1*cosh((3*p_star*q2)/(2*yy)) &
+    - 1)**(1/2))**m*(stress_star - (3*dde*ev)/(2*(nu + 1)))**2)/(2*yy**4*(nu + 1)*((stress_star &
+    - (3*dde*ev)/(2*nu + 2))**2/yy**2 - f_star**2*q3 + 2*f_star*q1*cosh((q2*(3*p_star + (3*ddv*ev)/(6*nu - 3)))/(2*yy)) - 1)**(3/2))
+
+
+dF1dv = (3*ev*f_star*q1*q2*sinh((q2*(3*p_star + (3*ddv*ev)/(6*nu - 3)))/(2*yy))*((stress_star**2/yy**2 &
+- f_star**2*q3 + 2*f_star*q1*cosh((3*p_star*q2)/(2*yy)) - 1)**(1/2))**m*(stress_star &
+- (3*dde*ev)/(2*(nu + 1))))/(2*yy**3*(6*nu - 3)*((stress_star - (3*dde*ev)/(2*nu + 2))**2/yy**2 &
+- f_star**2*q3 + 2*f_star*q1*cosh((q2*(3*p_star + (3*ddv*ev)/(6*nu - 3)))/(2*yy)) - 1)**(3/2))&
+ - (dde*z0*((3*ev*f_star**3*q1**3*q2**3*sinh((q2*(3*p_star + (3*ddv*ev)/(6*nu - 3)))/(2*yy))**3)/(2*yy**3*(6*nu &
+ - 3)*((stress_star - (3*dde*ev)/(2*nu + 2))**2/yy**2 - f_star**2*q3 + 2*f_star*q1*cosh((q2*(3*p_star &
+ + (3*ddv*ev)/(6*nu - 3)))/(2*yy)) - 1)**2) + (3*ev*f_star*q1*q2*sinh((q2*(3*p_star + (3*ddv*ev)/(6*nu &
+ - 3)))/(2*yy))*(stress_star - (3*dde*ev)/(2*(nu + 1)))**2)/(yy**5*(6*nu - 3)*((stress_star &
+ - (3*dde*ev)/(2*nu + 2))**2/yy**2 - f_star**2*q3 + 2*f_star*q1*cosh((q2*(3*p_star&
+  + (3*ddv*ev)/(6*nu - 3)))/(2*yy)) - 1)**2) + (3*ev*f_star**2*q1**2*q2**3*sinh((q2*(3*p_star&
+   + (3*ddv*ev)/(6*nu - 3)))/(2*yy))*cosh((q2*(3*p_star + (3*ddv*ev)/(6*nu - 3)))/(2*yy)))/(2*yy**3*(6*nu &
+   - 3)*(f_star**2*q3 - (stress_star - (3*dde*ev)/(2*(nu + 1)))**2/yy**2 &
+   - 2*f_star*q1*cosh((q2*(3*p_star + (3*ddv*ev)/(6*nu - 3)))/(2*yy)) + 1))))/(2*DTIME*((stress_star&
+    - (3*dde*ev)/(2*nu + 2))**2/(yy**4*((stress_star - (3*dde*ev)/(2*nu + 2))**2/yy**2 - f_star**2*q3 &
+    + 2*f_star*q1*cosh((q2*(3*p_star + (3*ddv*ev)/(6*nu - 3)))/(2*yy)) - 1)) &
+    + (f_star**2*q1**2*q2**2*sinh((q2*(3*p_star + (3*ddv*ev)/(6*nu - 3)))/(2*yy))**2)/(2*yy**2*((stress_star &
+    - (3*dde*ev)/(2*nu + 2))**2/yy**2 - f_star**2*q3 + 2*f_star*q1*cosh((q2*(3*p_star&
+     + (3*ddv*ev)/(6*nu - 3)))/(2*yy)) - 1)))**(1/2))
+
+dF2de = (ddv*z0*((3*ev*(stress_star - (3*dde*ev)/(2*(nu + 1))))/(yy**4*(nu + 1)*(f_star**2*q3 &
+- (stress_star - (3*dde*ev)/(2*(nu + 1)))**2/yy**2 - 2*f_star*q1*cosh((q2*(3*p_star &
++ (3*ddv*ev)/(6*nu - 3)))/(2*yy)) + 1)) + (3*ev*(stress_star - (3*dde*ev)/(2*(nu + 1)))**3)/(yy**6*(nu &
++ 1)*((stress_star - (3*dde*ev)/(2*nu + 2))**2/yy**2 - f_star**2*q3 + 2*f_star*q1*cosh((q2*(3*p_star &
++ (3*ddv*ev)/(6*nu - 3)))/(2*yy)) - 1)**2) + (3*ev*f_star**2*q1**2*q2**2*sinh((q2*(3*p_star &
++ (3*ddv*ev)/(6*nu - 3)))/(2*yy))**2*(stress_star - (3*dde*ev)/(2*(nu + 1))))/(2*yy**4*(nu + 1)*((stress_star &
+- (3*dde*ev)/(2*nu + 2))**2/yy**2 - f_star**2*q3 + 2*f_star*q1*cosh((q2*(3*p_star + (3*ddv*ev)/(6*nu &
+- 3)))/(2*yy)) - 1)**2)))/(2*DTIME*((stress_star - (3*dde*ev)/(2*nu + 2))**2/(yy**4*((stress_star&
+ - (3*dde*ev)/(2*nu + 2))**2/yy**2 - f_star**2*q3 + 2*f_star*q1*cosh((q2*(3*p_star + (3*ddv*ev)/(6*nu - 3)))/(2*yy)) - 1))&
+  + (f_star**2*q1**2*q2**2*sinh((q2*(3*p_star + (3*ddv*ev)/(6*nu - 3)))/(2*yy))**2)/(2*yy**2*((stress_star&
+   - (3*dde*ev)/(2*nu + 2))**2/yy**2 - f_star**2*q3 + 2*f_star*q1*cosh((q2*(3*p_star + (3*ddv*ev)/(6*nu - 3)))/(2*yy)) &
+   - 1)))**(1/2)) - (9*ev*f_star*q1*q2*sinh((q2*(3*p_star + (3*ddv*ev)/(6*nu - 3)))/(2*yy))*((stress_star**2/yy**2 &
+   - f_star**2*q3 + 2*f_star*q1*cosh((3*p_star*q2)/(2*yy)) - 1)**(1/2))**m*(stress_star&
+    - (3*dde*ev)/(2*(nu + 1))))/(4*yy**3*(nu + 1)*((stress_star - (3*dde*ev)/(2*nu + 2))**2/yy**2 &
+    - f_star**2*q3 + 2*f_star*q1*cosh((q2*(3*p_star + (3*ddv*ev)/(6*nu - 3)))/(2*yy)) - 1)**(3/2))
+
+
+dF2dv = (z0*(- (stress_star - (3*dde*ev)/(2*(nu + 1)))**2/(yy**4*(f_star**2*q3 - (stress_star&
+ - (3*dde*ev)/(2*(nu + 1)))**2/yy**2 - 2*f_star*q1*cosh((q2*(3*p_star + (3*ddv*ev)/(6*nu - 3)))/(2*yy)) + 1)) &
+ - (f_star**2*q1**2*q2**2*sinh((q2*(3*p_star + (3*ddv*ev)/(6*nu - 3)))/(2*yy))**2)/(2*yy**2*(f_star**2*q3 &
+ - (stress_star - (3*dde*ev)/(2*(nu + 1)))**2/yy**2 - 2*f_star*q1*cosh((q2*(3*p_star + (3*ddv*ev)/(6*nu - 3)))/(2*yy)) &
+ + 1)))**(1/2))/DTIME - (ddv*z0*((3*ev*f_star**3*q1**3*q2**3*sinh((q2*(3*p_star + (3*ddv*ev)/(6*nu&
+  - 3)))/(2*yy))**3)/(2*yy**3*(6*nu - 3)*((stress_star - (3*dde*ev)/(2*nu + 2))**2/yy**2 - f_star**2*q3&
+   + 2*f_star*q1*cosh((q2*(3*p_star + (3*ddv*ev)/(6*nu - 3)))/(2*yy)) - 1)**2)&
+    + (3*ev*f_star*q1*q2*sinh((q2*(3*p_star + (3*ddv*ev)/(6*nu - 3)))/(2*yy))*(stress_star &
+    - (3*dde*ev)/(2*(nu + 1)))**2)/(yy**5*(6*nu - 3)*((stress_star - (3*dde*ev)/(2*nu + 2))**2/yy**2 &
+    - f_star**2*q3 + 2*f_star*q1*cosh((q2*(3*p_star + (3*ddv*ev)/(6*nu - 3)))/(2*yy)) - 1)**2) &
+    + (3*ev*f_star**2*q1**2*q2**3*sinh((q2*(3*p_star + (3*ddv*ev)/(6*nu - 3)))/(2*yy))*cosh((q2*(3*p_star&
+     + (3*ddv*ev)/(6*nu - 3)))/(2*yy)))/(2*yy**3*(6*nu - 3)*(f_star**2*q3 - (stress_star &
+     - (3*dde*ev)/(2*(nu + 1)))**2/yy**2 - 2*f_star*q1*cosh((q2*(3*p_star + (3*ddv*ev)/(6*nu &
+     - 3)))/(2*yy)) + 1))))/(2*DTIME*((stress_star - (3*dde*ev)/(2*nu + 2))**2/(yy**4*((stress_star &
+     - (3*dde*ev)/(2*nu + 2))**2/yy**2 - f_star**2*q3 + 2*f_star*q1*cosh((q2*(3*p_star&
+      + (3*ddv*ev)/(6*nu - 3)))/(2*yy)) - 1)) + (f_star**2*q1**2*q2**2*sinh((q2*(3*p_star&
+      + (3*ddv*ev)/(6*nu - 3)))/(2*yy))**2)/(2*yy**2*((stress_star - (3*dde*ev)/(2*nu + 2))**2/yy**2 &
+      - f_star**2*q3 + 2*f_star*q1*cosh((q2*(3*p_star + (3*ddv*ev)/(6*nu - 3)))/(2*yy)) - 1)))**(1/2)) &
+      + (9*ev*f_star**2*q1**2*q2**2*sinh((q2*(3*p_star + (3*ddv*ev)/(6*nu - 3)))/(2*yy))**2*((stress_star**2/yy**2 &
+      - f_star**2*q3 + 2*f_star*q1*cosh((3*p_star*q2)/(2*yy)) - 1)**(1/2))**m)/(4*yy**2*(6*nu &
+      - 3)*((stress_star - (3*dde*ev)/(2*nu + 2))**2/yy**2 - f_star**2*q3 + 2*f_star*q1*cosh((q2*(3*p_star &
+      + (3*ddv*ev)/(6*nu - 3)))/(2*yy)) - 1)**(3/2)) - (9*ev*f_star*q1*q2**2*cosh((q2*(3*p_star &
+      + (3*ddv*ev)/(6*nu - 3)))/(2*yy))*((stress_star**2/yy**2 - f_star**2*q3 &
+      + 2*f_star*q1*cosh((3*p_star*q2)/(2*yy)) - 1)**(1/2))**m)/(4*yy**2*(6*nu - 3)*((stress_star&
+       - (3*dde*ev)/(2*nu + 2))**2/yy**2 - f_star**2*q3 + 2*f_star*q1*cosh((q2*(3*p_star &
+       + (3*ddv*ev)/(6*nu - 3)))/(2*yy)) - 1)**(1/2))
+
+
+!==== Chain Rule methods====
+!Fi_e  = 1.d0/(yy**2)*stress_star*(Fi**(-1.d0))
+!Fi_p  = 3*q1*q2*f_star/(2.d0*yy)*sinh(1.5d0*q2*p_star/yy)*(Fi**(-1.d0))
+!Fi_ee = 1.d0/(yy**2)*((Fi**(-1.d0))-stress_star*(Fi**(-2.d0))*Fi_e)
+!Fi_ep = -(1.d0/(yy**2)*stress_star*(Fi**(-1.d0))) *(3*q1*q2*f_star/(2.d0*yy)*sinh(1.5d0*q2*p_star/yy)*(Fi**(-1.d0)))/Fi
+!Fi_pe = -(1.d0/(yy**2)*stress_star*(Fi**(-1.d0))) *(3*q1*q2*f_star/(2.d0*yy)*sinh(1.5d0*q2*p_star/yy)*(Fi**(-1.d0)))/Fi
+!Fi_pp = (3.d0*q1*q2*f_star)/(2.d0*yy)*(3*q2/(2.d0*yy)*cosh(1.5d0*q2*p_star/yy)*(Fi**(-1.d0))&
+!-sinh(1.5d0*q2*p_star/yy)*(Fi**(-2.d0))*Fi_p)
 !
+!A = sqrt (Fi_e**2+2.d0/9.d0*(Fi_p**2))
+!b1 = Fi_e * (Fi**m)
+!b2 = Fi_p * (Fi**m)
 !
-!dfdy = (3.d0*f_star*q1*q2*sinh((3.d0*q2*((p_star - ev/(3.d0*(1.d0-2.d0*nu))*ddv)&
-!        - (ddv*ev)/(6.d0*nu - 3.d0)))/(2.d0*yy)))/(2.d0*yy*(((stress_star -1.5d0*ev/(1.d0+nu)*dde)&
-!         + (3.d0*dde*ev)/(2.d0*nu + 2.d0))**2.d0/(yy**2.d0) &
-!          - (f_star**2.d0)*q3 + 2.d0*f_star*q1*cosh((3.d0*q2*((p_star - ev/(3.d0*(1.d0-2.d0*nu))*ddv)&
-!           - (ddv*ev)/(6.d0*nu - 3.d0)))/(2.d0*yy)) - 1.d0)**(0.5d0))
-
-
-
-
-!fi = ((stress_star**2/yy**2) + 2*q1*f_star*cosh(1.5*q2*p_star /yy) - (1+q3*f_star**2))**0.5
-
-
-
-dfdx = stress_star/((yy**2.d0)*((stress_star**2.d0)/(yy**2.d0) - (f_star**2.d0)*q3 &
-+ 2.d0*f_star*q1*cosh((3.d0*p_star*q2)/(2.d0*yy)) - 1.d0)**(0.5d0))
-
-dfdy = (3.d0*f_star*q1*q2*sinh((3.d0*p_star*q2)/(2.d0*yy)))/(2.d0*yy*((stress_star**2.d0)/(yy**2.d0) - (f_star**2.d0)*q3 &
-+ 2.d0*f_star*q1*cosh((3.d0*p_star*q2)/(2.d0*yy)) - 1.d0)**(0.5d0))
-
-
-
-df1de = (z0*(stress_star**2/(yy**4*(stress_star**2/yy**2 - f_star**2*q3 + 2*f_star*q1*cosh((3*p_star*q2)/(2*yy)) - 1))&
- + (f_star**2*q1**2*q2**2*sinh((3*p_star*q2)/(2*yy))**2)/(2*yy**2*(stress_star**2/yy**2 - f_star**2*q3 &
- + 2*f_star*q1*cosh((3*p_star*q2)/(2*yy)) - 1)))**(1/2))/DTIME
-
-df1dv = 0
-
-df2de = 0
-
-df2dv = (z0*(stress_star**2/(yy**4*(stress_star**2/yy**2 - f_star**2*q3 + 2*f_star*q1*cosh((3*p_star*q2)/(2*yy)) - 1)) &
-+ (f_star**2*q1**2*q2**2*sinh((3*p_star*q2)/(2*yy))**2)/(2*yy**2*(stress_star**2/yy**2 - f_star**2*q3 &
-+ 2*f_star*q1*cosh((3*p_star*q2)/(2*yy)) - 1)))**(1/2))/DTIME
-
-
-F1 = -(stress_star*((stress_star**2/yy**2 - f_star**2*q3 &
-+ 2*f_star*q1*cosh((3*p_star*q2)/(2*yy)) - 1)**(1/2))**m)/(yy**2*(stress_star**2/yy**2 - f_star**2*q3&
- + 2*f_star*q1*cosh((3*p_star*q2)/(2*yy)) - 1)**(1/2))
-
-
-F2 = -(3*f_star*q1*q2*sinh((3*p_star*q2)/(2*yy))*((stress_star**2/yy**2 &
-- f_star**2*q3 + 2*f_star*q1*cosh((3*p_star*q2)/(2*yy)) - 1)**(1/2))**m)/(2*yy*(stress_star**2/yy**2 &
-- f_star**2*q3 + 2*f_star*q1*cosh((3*p_star*q2)/(2*yy)) - 1)**(1/2))
-
-
-! Fi = (((stress_star -1.5*ev/(1+nu)*dde) + 1.5*ev/(1+nu)*dde)**2/yy**2 &
-!   + 2*q1*f_star*cosh(1.5*q2*((p_star - ev/(3*(1-2*nu))*ddv) + ev/(3*(1-2*nu))*ddv)/yy)&
-!    - (1+q3*f_star**2))**0.5
-
-!F1 = ((dfdx**2 +2/9*dfdy**2)**0.5)*(dde/DTIME*z0) - (dfdx)*(Fi**m)
-!F2 = ((dfdx**2 +2/9*dfdy**2)**0.5)*(ddv/DTIME*z0) - (dfdy)*(Fi**m)
-!F1 = (dde*z0*(stress_star**2.d0/((yy**4.d0)*((stress_star - (3.d0*dde*ev)/(2.d0*(nu + 1.d0))  &
-!   +(3.d0*dde*ev)/(2.d0*nu + 2.d0))**2.d0/yy**2.d0 - (f_star**2.d0)*q3 + 2.d0*f_star*q1*cosh((3*p_star*q2)/(2*yy)) - 1)) &
-!   + (f_star**2*q1**2*q2**2*sinh((3*p_star*q2)/(2*yy))**2)/(2*yy**2*((stress_star - (3*dde*ev)/(2*(nu + 1)) &
-!   + (3*dde*ev)/(2*nu + 2))**2/yy**2 - f_star**2*q3 + 2*f_star*q1*cosh((3*p_star*q2)/(2*yy)) - 1)))**(1/2))/DTIME &
-!   - (stress_star*((stress_star**2/yy**2 - f_star**2*q3 + 2*f_star*q1*cosh((3*p_star*q2)/(2*yy)) &
-!   - 1)**(1/2))**m)/(yy**2*(stress_star**2/yy**2 - f_star**2*q3 &
-!   + 2*f_star*q1*cosh((3*p_star*q2)/(2*yy)) - 1)**(1/2))
+!e_de = -1.5d0*ev/(1.d0+nu)
+!p_dv = -ev/(3.d0*(1.d0-2*nu))
+!a_e  = Fi_e * Fi_ee/A + 2*Fi_p*Fi_pe/(9.d0*A)
+!a_p  = Fi_e * Fi_ep/A + 2*Fi_p*Fi_pp/(9.d0*A)
+!a_de = a_e * e_de
+!a_dv = a_p * p_dv
+!b2_de = -1.5d0*b2*ev/(1.d0+nu)*(Fi_pe/Fi_p + m*Fi_e/Fi)
+!b1_dv = -ev*b1/(3.d0*(1.d0-2.d0*nu))*(Fi_ep/Fi_e + m*Fi_p/Fi)
+!b2_dv = -ev*b2/(3.d0*(1.d0-2.d0*nu))*(Fi_pp/Fi_p + m*Fi_p/Fi)
+!b1_de = -1.5d0*b1*ev/(1.d0+nu)*(Fi_ee/Fi_e + m*Fi_e/Fi)
 !
-!F2 = (ddv*z0*(stress_star**2.d0/((yy**4.d0)*((stress_star - (3.d0*dde*ev)/(2.d0*(nu + 1.d0)) &
-!     + (3.d0*dde*ev)/(2.d0*nu + 2.d0))**2.d0/yy**2.d0 - (f_star**2.d0)*q3 + 2.d0*f_star*q1*cosh((3*p_star*q2)/(2*yy)) - 1))&
-!     + (f_star**2*q1**2*q2**2*sinh((3*p_star*q2)/(2*yy))**2)/(2*yy**2*((stress_star - (3*dde*ev)/(2*(nu + 1)) &
-!     + (3*dde*ev)/(2*nu + 2))**2/yy**2 - f_star**2*q3 + 2*f_star*q1*cosh((3*p_star*q2)/(2*yy)) - 1)))**(1/2))/DTIME &
-!     - (3*f_star*q1*q2*sinh((3*p_star*q2)/(2*yy))*((stress_star**2/yy**2 - f_star**2*q3 &
-!     + 2*f_star*q1*cosh((3*p_star*q2)/(2*yy)) - 1)**(1/2))**m)/(2*yy*(stress_star**2/yy**2 - f_star**2*q3 &
-!     + 2*f_star*q1*cosh((3*p_star*q2)/(2*yy)) - 1)**(1/2))
+!df1de = (a_de*dde + A)/(DTIME*z0)-b1_de
+!df1dv = (a_dv*dde)/(DTIME*z0)-b1_dv
+!df2de = (a_de*ddv)/(DTIME*z0)-b2_de
+!df2dv = (a_dv*ddv + A)/(DTIME*z0)-b2_dv
 !
-!
-!df1de = (z0*(stress_star**2/(yy**4*((stress_star - (3*dde*ev)/(2*(nu + 1)) + (3*dde*ev)/(2*nu + 2))**2/yy**2 &
-! - f_star**2*q3 + 2*f_star*q1*cosh((3*p_star*q2)/(2*yy)) - 1)) &
-! + (f_star**2*q1**2*q2**2*sinh((3*p_star*q2)/(2*yy))**2)/(2*yy**2*((stress_star - (3*dde*ev)/(2*(nu + 1)) &
-! + (3*dde*ev)/(2*nu + 2))**2/yy**2 - f_star**2*q3 + 2*f_star*q1*cosh((3*p_star*q2)/(2*yy)) - 1)))**(1/2))/DTIME &
-!  - (dde*z0*((2*stress_star**2*((3*ev)/(2*nu + 2) - (3*ev)/(2*(nu + 1)))*(stress_star - (3*dde*ev)/(2*(nu + 1))&
-!   + (3*dde*ev)/(2*nu + 2)))/(yy**6*(stress_star**2/yy**2 - f_star**2*q3 + 2*f_star*q1*cosh((3*p_star*q2)/(2*yy)) - 1)**2) &
-!   + (f_star**2*q1**2*q2**2*sinh((3*p_star*q2)/(2*yy))**2*((3*ev)/(2*nu + 2) - (3*ev)/(2*(nu + 1)))*(stress_star&
-!    - (3*dde*ev)/(2*(nu + 1)) + (3*dde*ev)/(2*nu + 2)))/(yy**4*(stress_star**2/yy**2 - f_star**2*q3 &
-!    + 2*f_star*q1*cosh((3*p_star*q2)/(2*yy)) - 1)**2)))/(2*DTIME*(stress_star**2/(yy**4*(stress_star**2/yy**2 - f_star**2*q3 &
-!    + 2*f_star*q1*cosh((3*p_star*q2)/(2*yy)) - 1))&
-!     + (f_star**2*q1**2*q2**2*sinh((3*p_star*q2)/(2*yy))**2)/(2*yy**2*(stress_star**2/yy**2 &
-!    - f_star**2*q3 + 2*f_star*q1*cosh((3*p_star*q2)/(2*yy)) - 1)))**(1/2)) + (stress_star*((stress_star**2/yy**2 &
-!    - f_star**2*q3 + 2*f_star*q1*cosh((3*p_star*q2)/(2*yy)) - 1)**(1/2))**m*((3*ev)/(2*nu + 2)&
-!     - (3*ev)/(2*(nu + 1)))*(stress_star - (3*dde*ev)/(2*(nu + 1)) + (3*dde*ev)/(2*nu + 2)))/(yy**4*(stress_star**2/yy**2 &
-!     - f_star**2*q3 + 2*f_star*q1*cosh((3*p_star*q2)/(2*yy)) - 1)**(3/2))
-!
-!df1dv = 0.d0
-!
-!df2de = (3*f_star*q1*q2*sinh((3*p_star*q2)/(2*yy))*((stress_star**2/yy**2 &
-!- f_star**2*q3 + 2*f_star*q1*cosh((3*p_star*q2)/(2*yy)) - 1)**(1/2))**m*((3*ev)/(2*nu + 2) &
-!- (3*ev)/(2*(nu + 1)))*(stress_star - (3*dde*ev)/(2*(nu + 1)) + (3*dde*ev)/(2*nu + 2)))/(2*yy**3*(stress_star**2/yy**2&
-! - f_star**2*q3 + 2*f_star*q1*cosh((3*p_star*q2)/(2*yy)) - 1)**(3/2)) &
-! - (ddv*z0*((2*stress_star**2*((3*ev)/(2*nu + 2) - (3*ev)/(2*(nu + 1)))*(stress_star &
-! - (3*dde*ev)/(2*(nu + 1)) + (3*dde*ev)/(2*nu + 2)))/(yy**6*(stress_star**2/yy**2 - f_star**2*q3 &
-! + 2*f_star*q1*cosh((3*p_star*q2)/(2*yy)) - 1)**2) + (f_star**2*q1**2*q2**2*sinh((3*p_star*q2)/(2*yy))**2*((3*ev)/(2*nu + 2) &
-! - (3*ev)/(2*(nu + 1)))*(stress_star - (3*dde*ev)/(2*(nu + 1)) + (3*dde*ev)/(2*nu + 2)))/(yy**4*(stress_star**2/yy**2 &
-!  - f_star**2*q3 + 2*f_star*q1*cosh((3*p_star*q2)/(2*yy)) - 1)**2)))/(2*DTIME*(stress_star**2/(yy**4*(stress_star**2/yy**2 &
-!  - f_star**2*q3 + 2*f_star*q1*cosh((3*p_star*q2)/(2*yy)) - 1)) + &
-!  (f_star**2*q1**2*q2**2*sinh((3*p_star*q2)/(2*yy))**2)/(2*yy**2*(stress_star**2/yy**2 - f_star**2*q3 &
-!  + 2*f_star*q1*cosh((3*p_star*q2)/(2*yy)) - 1)))**(1/2))
-!
-!
-!df2dv = (z0*(stress_star**2/(yy**4*((stress_star - (3*dde*ev)/(2*(nu + 1)) + (3*dde*ev)/(2*nu + 2))**2/yy**2&
-! - f_star**2*q3 + 2*f_star*q1*cosh((3*p_star*q2)/(2*yy)) - 1)) &
-! + (f_star**2*q1**2*q2**2*sinh((3*p_star*q2)/(2*yy))**2)/(2*yy**2*((stress_star - (3*dde*ev)/(2*(nu + 1)) &
-! + (3*dde*ev)/(2*nu + 2))**2/yy**2 - f_star**2*q3 + 2*f_star*q1*cosh((3*p_star*q2)/(2*yy)) - 1)))**(1/2))/DTIME
+!F1 = A*dde/(DTIME*z0)-b1
+!F2 = A*ddv/(DTIME*z0)-b2
+
+
 
 ddde = (df1dv*F2 - df2dv*F1)/(df1de*df2dv-df2de*df1dv)
 dddv = -(df1de*F2 - df2de*F1)/(df1de*df2dv-df2de*df1dv)
@@ -439,7 +489,6 @@ stress1_1(1:3,1:3) = S_star(1:3,1:3) - dde/stress_star*(ev/(1.d0+nu))*1.5d0*S_st
   + (p_star-(ev/(3.d0*(1.d0-2.d0*nu)))*ddv)*eye3_d
 
 end if
-
 
 stress1(1) = stress1_1(1,1)
 stress1(2) = stress1_1(2,2)
@@ -472,7 +521,7 @@ dematrix = z0*DTIME/(1.d0-vf)*(Fi**m)*(((dfdx**2+2.d0/9.d0*dfdy**2))**(-0.5d0)) 
 
    updated_state_variables(1:6) = stress1
    updated_state_variables(7)  = ematrix1
-  updated_state_variables(8) = vf1
+   updated_state_variables(8) = vf1
 
 
    end subroutine gurson
